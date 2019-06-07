@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.vertx.starter</groupId>
-  <artifactId>vertx-start-project</artifactId>
+  <artifactId>vertx-wiki</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <properties>
@@ -54,6 +54,11 @@
       <groupId>com.github.rjeschke</groupId>
       <artifactId>txtmark</artifactId>
       <version>0.13</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
     </dependency>
 
     <dependency>
