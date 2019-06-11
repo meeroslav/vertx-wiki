@@ -45,6 +45,7 @@ public class HttpServerTest {
             context.assertTrue(response.headers().contains("Content-Type"));
             context.assertEquals("text/plain", response.getHeader("Content-Type"));
             context.assertEquals("Ok", response.body().toString());
+            webClient.close();
             async.complete();
           } else {
             async.resolve(Future.failedFuture(ar.cause()));
