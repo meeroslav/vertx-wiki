@@ -58,7 +58,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.post("/delete").handler(this::pageDeletionHandler);
 
     Router apiRouter = Router.router(vertx);
-    apiRouter.get("/pages").handler(this::apiRoot);
+    apiRouter.get("/pages").handler(this::apiGetPages);
     apiRouter.get("/pages/:id").handler(this::apiGetPage);
     apiRouter.post().handler(BodyHandler.create());
     apiRouter.post("/pages").handler(this::apiCreatePage);
@@ -330,7 +330,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     });
   }
 
-  private void apiRoot(RoutingContext context) {
+  private void apiGetPages(RoutingContext context) {
     dbService.fetchAllPagesData(reply -> {
       JsonObject response = new JsonObject();
       if (reply.succeeded()) {
@@ -338,8 +338,8 @@ public class HttpServerVerticle extends AbstractVerticle {
           .stream()
           .map(obj -> new JsonObject()
             .put("id", obj.getInteger("ID"))
-          .put("name", obj.getString("NAME")))
-        .collect(Collectors.toList());
+            .put("name", obj.getString("NAME")))
+          .collect(Collectors.toList());
         response
           .put("success", true)
           .put("pages", pages);
