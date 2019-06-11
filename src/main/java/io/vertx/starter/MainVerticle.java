@@ -15,25 +15,38 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 public class MainVerticle extends AbstractVerticle {
-  private static final String SQL_CREATE_PAGES_TABLE = "create table if not exists Pages (Id integer identity primary key, Name varchar(255) unique, Content clob)";
-  private static final String SQL_GET_PAGE = "select Id, Content from Pages where Name = ?";
-  private static final String SQL_CREATE_PAGE = "insert into Pages values (NULL, ?, ?)";
-  private static final String SQL_SAVE_PAGE = "update Pages set Content = ? where Id = ?";
-  private static final String SQL_ALL_PAGES = "select Name from Pages";
-  private static final String SQL_DELETE_PAGE = "delete from Pages where Id = ?";
+  private static final String CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE = "wikidb.sqlqueries.resource.file";
+  private static final Logger LOGGER = LoggerFactory.getLogger(MainVerticle.class);
 
   private JDBCClient dbClient;
   private FreeMarkerTemplateEngine templateEngine;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MainVerticle.class);
+  private enum SqlQuery {
+    CREATE_PAGES_TABLE,
+    ALL_PAGES,
+    GET_PAGE,
+    CREATE_PAGE,
+    SAVE_PAGE,
+    DELETE_PAGE
+  }
+
+  private final HashMap<SqlQuery, String> sqlQueries = new HashMap<>();
 
   @Override
   public void start(Future<Void> startFuture) throws Exception {
+
+    loadSqlQueries();
+
     Future<Void> steps = prepareDatabase().compose(v -> startHttpServer());
     steps.setHandler(ar -> {
       if (ar.succeeded()) {
@@ -58,7 +71,7 @@ public class MainVerticle extends AbstractVerticle {
         future.fail(ar.cause());
       } else {
         SQLConnection connection = ar.result();
-        connection.execute(SQL_CREATE_PAGES_TABLE, create -> {
+        connection.execute(sqlQueries.get(SqlQuery.CREATE_PAGES_TABLE), create -> {
           connection.close();
           if (create.failed()) {
             LOGGER.error("Database preparation error", create.cause());
@@ -103,7 +116,7 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void indexHandler(RoutingContext context) {
-    dbClient.query(SQL_ALL_PAGES, res -> {
+    dbClient.query(sqlQueries.get(SqlQuery.ALL_PAGES), res -> {
       if (res.succeeded()) {
         List<String> pages = res.result()
           .getResults()
@@ -135,7 +148,7 @@ public class MainVerticle extends AbstractVerticle {
   private void pageRenderingHandler(RoutingContext context) {
     String page = context.request().getParam("page");
 
-    dbClient.queryWithParams(SQL_GET_PAGE, new JsonArray().add(page), fetch -> {
+    dbClient.queryWithParams(sqlQueries.get(SqlQuery.GET_PAGE), new JsonArray().add(page), fetch -> {
       if (fetch.succeeded()) {
 
         JsonArray row = fetch.result().getResults()
@@ -183,7 +196,9 @@ public class MainVerticle extends AbstractVerticle {
     String markdown = context.request().getParam("markdown");
     boolean newPage = "yes".equals(context.request().getParam("newPage"));
 
-    String sql = newPage ? SQL_CREATE_PAGE : SQL_SAVE_PAGE;
+    String sql = newPage ?
+      sqlQueries.get(SqlQuery.CREATE_PAGE) :
+      sqlQueries.get(SqlQuery.SAVE_PAGE);
     JsonArray params = new JsonArray();
     if (newPage) {
       params.add(title).add(markdown);
@@ -203,7 +218,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void pageDeletionHandler(RoutingContext context) {
     String id = context.request().getParam("id");
-    dbClient.updateWithParams(SQL_DELETE_PAGE, new JsonArray().add(id), res -> {
+    dbClient.updateWithParams(sqlQueries.get(SqlQuery.DELETE_PAGE), new JsonArray().add(id), res -> {
       if (res.succeeded()) {
         context.response().setStatusCode(303);
         context.response().putHeader("Location", "/");
@@ -212,6 +227,27 @@ public class MainVerticle extends AbstractVerticle {
         context.fail(res.cause());
       }
     });
+  }
+
+  private void loadSqlQueries() throws IOException {
+    String queriesFile = config().getString(CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE);
+    InputStream queriesInputStream;
+    if (queriesFile != null) {
+      queriesInputStream = new FileInputStream(queriesFile);
+    } else {
+      queriesInputStream = getClass().getResourceAsStream("/db-queries.properties");
+    }
+
+    Properties queriesProps = new Properties();
+    queriesProps.load(queriesInputStream);
+    queriesInputStream.close();
+
+    sqlQueries.put(SqlQuery.CREATE_PAGES_TABLE, queriesProps.getProperty("create-pages-table"));
+    sqlQueries.put(SqlQuery.ALL_PAGES, queriesProps.getProperty("all-pages"));
+    sqlQueries.put(SqlQuery.GET_PAGE, queriesProps.getProperty("get-page"));
+    sqlQueries.put(SqlQuery.CREATE_PAGE, queriesProps.getProperty("create-page"));
+    sqlQueries.put(SqlQuery.SAVE_PAGE, queriesProps.getProperty("save-page"));
+    sqlQueries.put(SqlQuery.DELETE_PAGE, queriesProps.getProperty("delete-page"));
   }
 
 }
