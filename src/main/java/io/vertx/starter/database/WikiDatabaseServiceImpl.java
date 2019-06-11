@@ -77,6 +77,29 @@ public class WikiDatabaseServiceImpl implements WikiDatabaseService {
   }
 
   @Override
+  public WikiDatabaseService fetchPageById(int id, Handler<AsyncResult<JsonObject>> resultHandler) {
+    dbClient.queryWithParams(sqlQueries.get(SqlQuery.GET_PAGE_BY_ID), new JsonArray().add(id), res -> {
+      if (res.succeeded()) {
+        if (res.result().getNumRows() > 0) {
+          JsonObject result = res.result().getRows().get(0);
+          resultHandler.handle(Future.succeededFuture(new JsonObject()
+            .put("found", true)
+            .put("id", result.getInteger("ID"))
+            .put("name", result.getString("NAME"))
+            .put("content", result.getString("CONTENT"))));
+        } else {
+          resultHandler.handle(Future.succeededFuture(
+            new JsonObject().put("found", false)));
+        }
+      } else {
+        LOGGER.error("Database query error", res.cause());
+        resultHandler.handle(Future.failedFuture(res.cause()));
+      }
+    });
+    return this;
+  }
+
+  @Override
   public WikiDatabaseService fetchPage(String name, Handler<AsyncResult<JsonObject>> resultHandler) {
     dbClient.queryWithParams(sqlQueries.get(SqlQuery.GET_PAGE), new JsonArray().add(name), fetch -> {
       if (fetch.succeeded()) {
