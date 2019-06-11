@@ -42,6 +42,7 @@ import io.vertx.serviceproxy.ServiceExceptionMessageCodec;
 import io.vertx.serviceproxy.HelperUtils;
 
 import io.vertx.core.json.JsonArray;
+import java.util.List;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
@@ -118,6 +119,10 @@ public class WikiDatabaseServiceVertxProxyHandler extends ProxyHandler {
       switch (action) {
         case "fetchAllPages": {
           service.fetchAllPages(HelperUtils.createHandler(msg));
+          break;
+        }
+        case "fetchAllPagesData": {
+          service.fetchAllPagesData(HelperUtils.createListHandler(msg));
           break;
         }
         case "fetchPage": {
